@@ -103,6 +103,7 @@ public:
 	{
 		detach();
 		move_from(std::move(rhs));
+		return *this;
 	}
 
 	T* get() noexcept { return obj; }
@@ -119,12 +120,12 @@ public:
 		return rhs.obj != obj;
 	}
 
-	bool operator==(const nullptr_t&) const noexcept
+	bool operator==(const std::nullptr_t&) const noexcept
 	{
 		return nullptr == obj;
 	}
 
-	bool operator!=(const nullptr_t&) const noexcept
+	bool operator!=(const std::nullptr_t&) const noexcept
 	{
 		return nullptr != obj;
 	}
@@ -167,6 +168,7 @@ protected:
 		_head.update_obj(nullptr); // set all the links to null, so when they try to access it, they'll presumably die
 		_head = std::move(rhs._head);
 		_head.update_obj(static_cast<T*>(this)); // set all the pointers in the link to us
+		return *this;
 	}
 
 	~tracked()
