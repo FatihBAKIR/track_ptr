@@ -1,10 +1,12 @@
-#include "track_ptr.hpp"
 #include <iostream>
 #include <vector>
 #include <cassert>
+#include "track_ptr.hpp"
+
+using namespace malt;
 
 struct Widget 
-	: public tracked<Widget>
+	: public tracked_base
 {
 	int val;
 
@@ -41,7 +43,7 @@ void test_2()
 	std::vector<Widget> comps;
 	comps.emplace_back(10);
 
-	auto p = comps[0].get_ptr();
+	auto p = get_ptr(comps[0]);
 	auto p2 = std::move(p);
 	auto p3 = p2;
 
@@ -68,7 +70,7 @@ void test_4()
 {
 	Widget w;
 	w.val = 10;
-	auto w_p = w.get_ptr();
+	auto w_p = get_ptr(w);
 
 	Widget w2;
 	w2.val = 15;
@@ -85,6 +87,20 @@ void test_4()
 
 int main()
 {
+	Widget c;
+
+	auto p = get_ptr(c);
+	p->val = 3;
+
+	Widget d = std::move(c);
+    c.val = 0;
+
+	p->val = 10;
+	std::cout << d.val << '\n';
+	std::cout << p->val << '\n';
+
+    return 0;
+
 	test_1();
 	test_2();
 	test_3();
