@@ -1,3 +1,5 @@
+#pragma once
+
 #include <utility>
 #include <cstring>
 #include <type_traits>
@@ -78,6 +80,7 @@ namespace malt {
         public:
             template <class T>
             explicit track_ptr(T* obj) : obj(obj), next{}, prev{} {}
+            track_ptr(std::nullptr_t) : obj{}, next{}, prev{} {}
 
             track_ptr(track_ptr& rhs) noexcept
             {
@@ -121,6 +124,11 @@ namespace malt {
             bool operator!=(const std::nullptr_t&) const noexcept
             {
                 return nullptr!=obj;
+            }
+
+            explicit operator bool() const
+            {
+                return *this != nullptr;
             }
 
             ~track_ptr()
