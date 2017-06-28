@@ -6,7 +6,7 @@
 #include <cstddef>
 
 namespace malt {
-    class tracked_base;
+    class tracked;
 
     template<class T>
     class track_ptr;
@@ -14,28 +14,30 @@ namespace malt {
     template<class T>
     track_ptr<T> get_ptr(T& obj);
 
+    template<class OutT, class InT>
+    track_ptr<OutT> pointer_cast(track_ptr<InT>& obj);
+
     template<class T>
     track_ptr<const T> get_ptr(const T& obj);
 
     namespace detail {
         class track_ptr
         {
-            friend class malt::tracked_base;
+            friend class malt::tracked;
 
-            tracked_base* obj;
+            tracked* obj;
             track_ptr* next;
             track_ptr* prev;
 
             void update_obj(std::nullptr_t)
             {
-                update_obj((tracked_base*) nullptr);
+                update_obj((tracked*) nullptr);
             }
 
             template<class T>
             void update_obj(T* new_obj)
             {
                 for (auto ptr = this; ptr; ptr = ptr->next) {
-                    std::cout << ptr << '\n';
                     ptr->obj = new_obj;
                 }
             }
@@ -76,10 +78,9 @@ namespace malt {
 
                 rhs.next = this;
             }
-
-        public:
             template <class T>
             explicit track_ptr(T* obj) : obj(obj), next{}, prev{} {}
+        public:
             track_ptr(std::nullptr_t) : obj{}, next{}, prev{} {}
 
             track_ptr(track_ptr& rhs) noexcept
@@ -126,19 +127,19 @@ namespace malt {
                 return nullptr!=obj;
             }
 
-            explicit operator bool() const
-            {
-                return *this != nullptr;
-            }
-
             ~track_ptr()
             {
                 // detach from the link upon destruction
                 detach();
             }
 
+            explicit operator bool() const
+            {
+                return *this != nullptr;
+            }
+
         protected:
-            tracked_base* get_base_ptr()
+            tracked* get_base_ptr() const
             {
                 return obj;
             }
@@ -148,49 +149,68 @@ namespace malt {
     template<class T>
     class track_ptr : public detail::track_ptr
     {
-        static_assert(std::is_base_of<tracked_base, T>::value, "Type does not inherit from tracked!");
-    public:
+        friend track_ptr<T> get_ptr<>(T&);
+        template <class Out, class In> friend track_ptr<Out> pointer_cast(track_ptr<In>&);
 
-        T* get() noexcept
+        track_ptr(detail::track_ptr& rhs) :
+                detail::track_ptr(rhs) {
+            static_assert(std::is_base_of<tracked, T>::value, "Type does not inherit from tracked!");
+        }
+
+        track_ptr(detail::track_ptr&& rhs) :
+                detail::track_ptr(std::move(rhs)) {
+            static_assert(std::is_base_of<tracked, T>::value, "Type does not inherit from tracked!");
+        }
+
+
+    public:
+        track_ptr() : detail::track_ptr(nullptr) {}
+
+        template <class U>
+        track_ptr(track_ptr<U>&& rhs) :
+                detail::track_ptr(std::forward<track_ptr<U>>(rhs))
+        {
+            T* can_assign = (U*)nullptr;
+        }
+
+        T* get() const noexcept
         { return static_cast<T*>(get_base_ptr()); }
 
-        T& operator*() noexcept
-        {
-            return static_cast<T*>(get_base_ptr());
-        }
+        T& operator*() const noexcept
+        { return static_cast<T*>(get_base_ptr()); }
 
-        T* operator->() noexcept
-        {
-            return static_cast<T*>(get_base_ptr());
-        }
+        T* operator->() const noexcept
+        { return static_cast<T*>(get_base_ptr()); }
 
         using detail::track_ptr::operator=;
         using detail::track_ptr::operator==;
         using detail::track_ptr::operator!=;
-        using detail::track_ptr::track_ptr;
     };
 
-    class tracked_base
+    class tracked
     {
+        template <class T> friend track_ptr<T> get_ptr(T&);
+        template <class Out, class In> friend track_ptr<Out> pointer_cast(track_ptr<In>&);
+
     protected:
         mutable detail::track_ptr m_head;
 
-        tracked_base() noexcept
-            : m_head(this)
+        tracked() noexcept
+                : m_head(this)
         {}
 
-        tracked_base(const tracked_base& rhs) noexcept
-            : m_head(this)
+        tracked(const tracked& rhs) noexcept
+                : m_head(this)
         {
         }
 
-        tracked_base(tracked_base&& rhs) noexcept
-            : m_head(std::move(rhs.m_head))
+        tracked(tracked&& rhs) noexcept
+                : m_head(std::move(rhs.m_head))
         {
             m_head.update_obj(this); // set all the pointers in the link to us
         }
 
-        tracked_base& operator=(const tracked_base&)
+        tracked& operator=(const tracked&)
         {
             m_head.update_obj(
                     nullptr); // set all the links to null, so when they try to access it, they'll presumably die
@@ -198,7 +218,7 @@ namespace malt {
             return *this;
         }
 
-        tracked_base& operator=(tracked_base&& rhs)
+        tracked& operator=(tracked&& rhs)
         {
             m_head.update_obj(
                     nullptr); // set all the links to null, so when they try to access it, they'll presumably die
@@ -207,7 +227,7 @@ namespace malt {
             return *this;
         }
 
-        ~tracked_base()
+        ~tracked()
         {
             m_head.update_obj(
                     nullptr); // set all the links to null, so when they try to access it, they'll presumably die
@@ -217,7 +237,19 @@ namespace malt {
     template <class T>
     track_ptr<T> get_ptr(T& obj)
     {
-        return track_ptr<T>(&obj);
+        return track_ptr<T>(obj.m_head);
+    }
+
+    template <class T>
+    track_ptr<const T> get_ptr(const T& obj)
+    {
+        return track_ptr<T>(obj.m_head);
+    }
+
+    template <class OutT, class InT>
+    track_ptr<OutT> pointer_cast(track_ptr<InT>& in)
+    {
+        return track_ptr<OutT>(static_cast<OutT*>(in.get())->m_head);
     }
 }
 

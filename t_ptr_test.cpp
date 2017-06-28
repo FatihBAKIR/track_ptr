@@ -6,7 +6,7 @@
 using namespace malt;
 
 struct Widget 
-	: public tracked_base
+	: public tracked
 {
 	int val;
 
@@ -22,7 +22,7 @@ void test_1()
 	for (int i = 0; i < 1000; ++i)
 	{
 		comps.emplace_back(i);
-		ptrs.emplace_back(&comps.back());
+		ptrs.emplace_back(get_ptr(comps.back()));
 
 		for (int j = 0; j <= i; ++j)
 		{
@@ -62,7 +62,7 @@ void test_2()
 void test_3()
 {
 	Widget c (10);
-	track_ptr<Widget> c_p (&c);
+	track_ptr<Widget> c_p (get_ptr(c));
 	assert (c_p->val == 10);
 }
 
@@ -90,6 +90,7 @@ int main()
 	Widget c;
 
 	auto p = get_ptr(c);
+	track_ptr<tracked> pp = get_ptr(c);
 	p->val = 3;
 
 	Widget d = std::move(c);
@@ -99,7 +100,10 @@ int main()
 	std::cout << d.val << '\n';
 	std::cout << p->val << '\n';
 
-    return 0;
+	std::cout << ((Widget*)pp.get())->val << '\n';
+
+	track_ptr<Widget> wp1 = p;
+	track_ptr<Widget> wp = pointer_cast<Widget>(pp);
 
 	test_1();
 	test_2();
