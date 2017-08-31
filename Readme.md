@@ -5,7 +5,7 @@ _the zero-overhead smart pointer that's never invalid_
 std::vector<Widget> widgets(1);
 widgets.front().val = "hello";
 
-track_ptr<Widget> w_p (&widgets.front());
+track_ptr<Widget> w_p = get_ptr(widgets.front());
 Widget* danger = &widgets.front();
 
 std::cout << w_p->val << '\n'; // prints "hello"
@@ -30,16 +30,16 @@ std::cout << danger->val << '\n'; // probably dies
 
 ## Usage
 
-To allow the objects of a type `T` to be tracked, make it inherit from `tracked<T>`:
+To allow the objects of a type `T` to be tracked, make it inherit from `tracked`:
 
 ```cpp
-class Widget : public tracked<Widget>
+class Widget : public tracked
 {
   ...
 }
 ```
 
-`tracked` is a non-polymorphic class template that notifies pointers upon moving or destruction
+`tracked` is a non-polymorphic class that notifies pointers upon moving or destruction
 
 **warning:** make sure you call its assignment operators if you are implementing your own assignment operators like:
 
@@ -47,8 +47,6 @@ class Widget : public tracked<Widget>
 Widget& Widget::operator=(Widget&& rhs) //ditto with copy assingment
 {
   ...
-  tracked<Widget>::operator=(std::move(rhs));
+  tracked::operator=(std::move(rhs));
 }
 ```
-
-Inheriting from `tracked` exposes a single member: `get_ptr`. This method returns a `track_ptr` to the object it's called on.
